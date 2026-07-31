@@ -6,6 +6,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AsusFanProfileSwitcher", "s
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ProfileCatalog.SmokeTests", "tests\ProfileCatalog.SmokeTests\ProfileCatalog.SmokeTests.csproj", "{117D2E18-0F22-4F53-9948-C2E6AE638DFE}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AsusFanProfileSwitcher.GameBar", "src\AsusFanProfileSwitcher.GameBar\AsusFanProfileSwitcher.GameBar.csproj", "{C20A3AC6-EA89-40F0-82E4-C7DD99051FB1}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -20,5 +22,11 @@ Global
 		{117D2E18-0F22-4F53-9948-C2E6AE638DFE}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{117D2E18-0F22-4F53-9948-C2E6AE638DFE}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{117D2E18-0F22-4F53-9948-C2E6AE638DFE}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C20A3AC6-EA89-40F0-82E4-C7DD99051FB1}.Debug|Any CPU.ActiveCfg = Debug|x64
+		{C20A3AC6-EA89-40F0-82E4-C7DD99051FB1}.Debug|Any CPU.Build.0 = Debug|x64
+		{C20A3AC6-EA89-40F0-82E4-C7DD99051FB1}.Debug|Any CPU.Deploy.0 = Debug|x64
+		{C20A3AC6-EA89-40F0-82E4-C7DD99051FB1}.Release|Any CPU.ActiveCfg = Release|x64
+		{C20A3AC6-EA89-40F0-82E4-C7DD99051FB1}.Release|Any CPU.Build.0 = Release|x64
+		{C20A3AC6-EA89-40F0-82E4-C7DD99051FB1}.Release|Any CPU.Deploy.0 = Release|x64
 	EndGlobalSection
 EndGlobal
