@@ -17,6 +17,7 @@ internal sealed class MainForm : Form
     private readonly AsusFanXpertAdapter _adapter = new();
     private readonly SettingsStore _settingsStore = new();
     private readonly HardwareMonitorService _hardwareMonitor = new();
+    private GameBarBridge? _gameBarBridge;
     private readonly System.Windows.Forms.Timer _monitorTimer = new() { Interval = 1500 };
     private readonly TableLayoutPanel _root = new();
     private readonly FlowLayoutPanel _profilesPanel = new();
@@ -59,6 +60,7 @@ internal sealed class MainForm : Form
         {
             _monitorTimer.Stop();
             _hardwareMonitor.Dispose();
+            _gameBarBridge?.Dispose();
         };
     }
 
@@ -66,6 +68,7 @@ internal sealed class MainForm : Form
     {
         WindowsTheme.ApplyDark(this, _profilesPanel, _fanReadingsPanel);
         RefreshProfiles();
+        _gameBarBridge ??= new GameBarBridge(HandleGameBarRequestAsync);
         _monitorStateLabel.Text = "INITIALIZING SENSORS…";
         await Task.Run(_hardwareMonitor.Open);
         _monitorTimer.Tick += async (_, _) => await RefreshMonitorAsync();
@@ -442,6 +445,109 @@ internal sealed class MainForm : Form
         {
             SetBusy(false);
         }
+    }
+
+    private Task<GameBarResponse> HandleGameBarRequestAsync(GameBarRequest request)
+    {
+        if (!InvokeRequired)
+        {
+            return HandleGameBarRequestOnUiThreadAsync(request);
+        }
+
+        var completion = new TaskCompletionSource<GameBarResponse>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        BeginInvoke(new Action(async () =>
+        {
+            try
+            {
+                completion.SetResult(await HandleGameBarRequestOnUiThreadAsync(request));
+            }
+            catch (Exception exception)
+            {
+                completion.SetResult(new GameBarResponse(false, exception.Message));
+            }
+        }));
+        return completion.Task;
+    }
+
+    private async Task<GameBarResponse> HandleGameBarRequestOnUiThreadAsync(
+        GameBarRequest request)
+    {
+        if (string.Equals(request.Command, "state", StringComparison.OrdinalIgnoreCase))
+        {
+            return new GameBarResponse(true, "Controller connected.", CreateGameBarState());
+        }
+
+        if (!string.Equals(request.Command, "apply", StringComparison.OrdinalIgnoreCase) ||
+            string.IsNullOrWhiteSpace(request.ProfileName))
+        {
+            return new GameBarResponse(false, "Unsupported Game Bar command.");
+        }
+        if (_busy)
+        {
+            return new GameBarResponse(false, "A profile switch is already in progress.");
+        }
+
+        RefreshProfiles();
+        var profile = _profiles.FirstOrDefault(candidate =>
+            string.Equals(
+                candidate.Name,
+                request.ProfileName,
+                StringComparison.OrdinalIgnoreCase));
+        if (profile is null)
+        {
+            return new GameBarResponse(false, "That profile is no longer available.");
+        }
+        if (_connection is null || !_connection.IsConnected)
+        {
+            return new GameBarResponse(
+                false,
+                _connection?.Summary ?? "The ASUS fan-control service is unavailable.",
+                CreateGameBarState());
+        }
+        if (string.Equals(profile.Hash, GetActiveHash(), StringComparison.Ordinal))
+        {
+            return new GameBarResponse(
+                true,
+                $"{profile.DisplayName} is already active.",
+                CreateGameBarState());
+        }
+
+        SetBusy(true);
+        _statusLabel.Text = $"APPLYING {profile.DisplayName.ToUpperInvariant()} FROM GAME BAR…";
+        try
+        {
+            var result = await _adapter.ApplyAsync(profile, _connection);
+            _selectedProfile = profile;
+            RefreshProfiles();
+            _statusLabel.Text =
+                $"{profile.DisplayName.ToUpperInvariant()} ACTIVE  /  BACKUP: {result.BackupPath}";
+            return new GameBarResponse(
+                true,
+                $"{profile.DisplayName} is now active.",
+                CreateGameBarState());
+        }
+        catch (Exception exception)
+        {
+            _statusLabel.Text = "GAME BAR PROFILE SWITCH FAILED";
+            return new GameBarResponse(false, exception.Message, CreateGameBarState());
+        }
+        finally
+        {
+            SetBusy(false);
+        }
+    }
+
+    private GameBarState CreateGameBarState()
+    {
+        var activeHash = GetActiveHash();
+        return new GameBarState(
+            _connection?.IsConnected == true,
+            _connection?.Summary ?? "ASUS fan-control service not detected.",
+            _profiles.Select(profile => new GameBarProfile(
+                profile.Name,
+                profile.DisplayName,
+                string.Equals(profile.Hash, activeHash, StringComparison.Ordinal))).ToArray());
     }
 
     private void ShowSelectedCurve()

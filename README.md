@@ -4,6 +4,10 @@ A Windows cooling dashboard for the XML profiles saved by ASUS Fan Xpert 2+/3.
 The interface uses an Armoury Crate-inspired dark instrument-panel layout while
 remaining an independent utility.
 
+It also includes an **ASUS Fan Profiles** widget for Xbox Game Bar on Windows
+11. The widget exposes the saved profiles in the `Win+G` overlay, shows the
+active profile, and applies a profile after an explicit confirmation.
+
 The default profile directory is:
 
 ```text
@@ -43,6 +47,49 @@ service and `FanStore.xml` are found.
 - The curve chart parses temperature (`x`) and fan-duty (`y`) points. Profiles
   from an unrecognized Fan Xpert XML generation remain selectable, but the
   chart explains when it cannot find compatible curve points.
+
+## Xbox Game Bar on Windows 11
+
+Game Bar only hosts packaged UWP XAML widgets, so the overlay is a small
+companion app rather than a second copy of the controller. It communicates with
+the elevated desktop controller over a local named pipe. The widget never opens
+ASUS files, restarts services, or performs privileged work itself.
+The controller checks the connecting process's Windows package family before
+accepting commands; other local apps and unrelated UWP packages are rejected.
+
+The implementation follows Microsoft's
+[Xbox Game Bar SDK documentation](https://learn.microsoft.com/en-us/xbox/game-bar/),
+including protocol activation, the `microsoft.gameBarUIExtension` manifest
+contract, resizable/pinnable widget metadata, and app-container IPC guidance.
+
+To build and register the widget for local development:
+
+1. Install Visual Studio 2022 with the **Universal Windows Platform
+   development** workload and Windows 10 SDK 19041.
+2. Enable **Developer Mode** in Windows Settings.
+3. In PowerShell, run:
+
+   ```powershell
+   .\install-gamebar.ps1
+   ```
+
+4. Build and start `AsusFanProfileSwitcher.exe` as administrator.
+5. Press `Win+G`, open **Widget Menu**, and select **ASUS Fan Profiles**.
+
+The controller must remain running while using the widget. This is intentional:
+the existing controller owns profile validation, backups, serialized switching,
+and the elevated ASUS service access. If it is closed, the widget reports
+`CONTROLLER OFFLINE` and disables switching.
+
+For a signed sideload or Microsoft Store package, open
+`AsusFanProfileSwitcher.sln` in Visual Studio, associate the Game Bar project
+with its Store identity (or select a signing certificate whose subject matches
+the manifest publisher), and use **Publish > Create App Packages**. Replace the
+placeholder `Identity` values in `Package.appxmanifest` with the identity
+assigned by Partner Center before submission. If Partner Center changes the
+manifest `Identity Name`, update `ExpectedPackageFamilyPrefix` in
+`GameBarBridge.cs` to the same name plus `_`; this check prevents an unrelated
+package from sending privileged commands to the desktop controller.
 
 ## Profile and fan names
 
@@ -94,6 +141,13 @@ dist\AsusFanProfileSwitcher.exe
 
 The build script runs the profile discovery, duplication, and curve-parser smoke
 tests before publishing.
+
+The Game Bar companion has a separate build because UWP packaging requires
+Visual Studio/MSBuild in addition to the .NET SDK:
+
+```powershell
+.\build-gamebar.ps1 -Configuration Release
+```
 
 The executable requests administrator access because it must update a file
 under Program Files and restart a Windows service.
